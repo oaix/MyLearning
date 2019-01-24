@@ -62,37 +62,37 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
     for (auto &id_pts : image)
     {
         FeaturePerFrame f_per_fra(id_pts.second[0].second, td);
-        assert(id_pts.second[0].first == 0);
-        if(id_pts.second.size() == 2)
+        assert(id_pts.second[0].first == 0);//确保第一个相机id为0
+        if(id_pts.second.size() == 2)//如果特征点被两个相机观测到
         {
-            f_per_fra.rightObservation(id_pts.second[1].second);
-            assert(id_pts.second[1].first == 1);
+            f_per_fra.rightObservation(id_pts.second[1].second);//设置右目观测
+            assert(id_pts.second[1].first == 1);//确保第二个相机的id为1
         }
 
-        int feature_id = id_pts.first;
-        auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)
+        int feature_id = id_pts.first;//获取特征点id(递增的)
+        auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)//在FeaturePerId list中查找特征id
                           {
             return it.feature_id == feature_id;
                           });
 
-        if (it == feature.end())
+        if (it == feature.end())//没有查找到
         {
-            feature.push_back(FeaturePerId(feature_id, frame_count));
-            feature.back().feature_per_frame.push_back(f_per_fra);
-            new_feature_num++;
+            feature.push_back(FeaturePerId(feature_id, frame_count));//添加FeaturePerId
+            feature.back().feature_per_frame.push_back(f_per_fra);//添加特征描述
+            new_feature_num++;//新特征计数
         }
         else if (it->feature_id == feature_id)
         {
-            it->feature_per_frame.push_back(f_per_fra);
-            last_track_num++;
-            if( it-> feature_per_frame.size() >= 4)
-                long_track_num++;
+            it->feature_per_frame.push_back(f_per_fra);//添加特征描述
+            last_track_num++;//持续特征计数
+            if( it-> feature_per_frame.size() >= 4)//如果被跟踪次数达到4次为long_track
+                long_track_num++;//
         }
     }
 
     //if (frame_count < 2 || last_track_num < 20)
     //if (frame_count < 2 || last_track_num < 20 || new_feature_num > 0.5 * last_track_num)
-    if (frame_count < 2 || last_track_num < 20 || long_track_num < 40 || new_feature_num > 0.5 * last_track_num)
+    if (frame_count < 2 || last_track_num < 20 || long_track_num < 40 || new_feature_num > 0.5 * last_track_num)//满足条件判定为关键帧
         return true;
 
     for (auto &it_per_id : feature)

@@ -77,7 +77,7 @@ void sync_process()
             cv::Mat image0, image1;
             std_msgs::Header header;
             double time = 0;
-            m_buf.lock();
+            m_buf.lock();//加锁,
             if (!img0_buf.empty() && !img1_buf.empty())
             {
                 double time0 = img0_buf.front()->header.stamp.toSec();
@@ -103,9 +103,9 @@ void sync_process()
                     //printf("find img0 and img1\n");
                 }
             }
-            m_buf.unlock();
+            m_buf.unlock();//解锁
             if(!image0.empty())
-                estimator.inputImage(time, image0, image1);
+                estimator.inputImage(time, image0, image1);//将图像输入给estimator
         }
         else
         {

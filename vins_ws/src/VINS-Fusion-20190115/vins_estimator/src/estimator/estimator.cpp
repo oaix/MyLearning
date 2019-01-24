@@ -43,16 +43,16 @@ void Estimator::setParameter()
     std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
     if (MULTIPLE_THREAD)
     {
-        processThread   = std::thread(&Estimator::processMeasurements, this);
+        processThread   = std::thread(&Estimator::processMeasurements, this);//创建线程
     }
 }
 
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
-    inputImageCnt++;
+    inputImageCnt++;//输入图像计数
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-    TicToc featureTrackerTime;
-    if(_img1.empty())
+    TicToc featureTrackerTime;//计时器
+    if(_img1.empty())//光流跟踪,判断单目还是双目
         featureFrame = featureTracker.trackImage(t, _img);
     else
         featureFrame = featureTracker.trackImage(t, _img, _img1);
@@ -63,6 +63,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
         if(inputImageCnt % 2 == 0)
         {
             mBuf.lock();
+            //容器:  t, feature_id ,camera_id, xyz_uv_velocity
             featureBuf.push(make_pair(t, featureFrame));
             mBuf.unlock();
         }
@@ -82,14 +83,14 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity)
 {
     mBuf.lock();
-    accBuf.push(make_pair(t, linearAcceleration));
-    gyrBuf.push(make_pair(t, angularVelocity));
+    accBuf.push(make_pair(t, linearAcceleration));//加速度数据存入队列
+    gyrBuf.push(make_pair(t, angularVelocity));//角速度数据存入队列
     //printf("input imu with time %f \n", t);
     mBuf.unlock();
 
-    fastPredictIMU(t, linearAcceleration, angularVelocity);
+    fastPredictIMU(t, linearAcceleration, angularVelocity);//进行imu预测
     if (solver_flag == NON_LINEAR)
-        pubLatestOdometry(latest_P, latest_Q, latest_V, t);
+        pubLatestOdometry(latest_P, latest_Q, latest_V, t);//发布数据
 }
 
 void Estimator::inputFeature(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &featureFrame)
@@ -151,13 +152,14 @@ void Estimator::processMeasurements()
     while (1)
     {
         //printf("process measurments\n");
+        //容器:  t, feature_id ,camera_id, xyz_uv_velocity
         pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > feature;
-        vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
+        vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;//传感器数据容器,时间+数据
         if(!featureBuf.empty())
         {
             feature = featureBuf.front();
             curTime = feature.first + td;
-            while(1)
+            while(1)//等待imu数据
             {
                 if ((!USE_IMU  || IMUAvailable(feature.first + td)))
                     break;
@@ -172,9 +174,9 @@ void Estimator::processMeasurements()
             }
             mBuf.lock();
             if(USE_IMU)
-                getIMUInterval(prevTime, curTime, accVector, gyrVector);
+                getIMUInterval(prevTime, curTime, accVector, gyrVector);//提取时间段内的imu数据
 
-            featureBuf.pop();
+            featureBuf.pop();//featureBuf删除第一个元素
             mBuf.unlock();
 
             if(USE_IMU)
@@ -184,7 +186,7 @@ void Estimator::processMeasurements()
                 for(size_t i = 0; i < accVector.size(); i++)
                 {
                     double dt;
-                    if(i == 0)
+                    if(i == 0)//计算imu数据dt时间,第一帧和最后一帧时间用prevTime和curTime计算
                         dt = accVector[i].first - prevTime;
                     else if (i == accVector.size() - 1)
                         dt = curTime - accVector[i - 1].first;
@@ -223,20 +225,20 @@ void Estimator::processMeasurements()
 void Estimator::initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector)
 {
     printf("init first imu pose\n");
-    initFirstPoseFlag = true;
+    initFirstPoseFlag = true;//初始化标志位置true
     //return;
     Eigen::Vector3d averAcc(0, 0, 0);
     int n = (int)accVector.size();
-    for(size_t i = 0; i < accVector.size(); i++)
+    for(size_t i = 0; i < accVector.size(); i++)//计算加速度计均值
     {
         averAcc = averAcc + accVector[i].second;
     }
     averAcc = averAcc / n;
     printf("averge acc %f %f %f\n", averAcc.x(), averAcc.y(), averAcc.z());
-    Matrix3d R0 = Utility::g2R(averAcc);
-    double yaw = Utility::R2ypr(R0).x();
-    R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;
-    Rs[0] = R0;
+    Matrix3d R0 = Utility::g2R(averAcc);//从加速度计测量重力分量得到姿态矩阵(yaw = 0)
+    double yaw = Utility::R2ypr(R0).x();//g2R函数内已经做过处理
+    R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;//g2R函数内已经做过处理
+    Rs[0] = R0;//记录初始化旋转矩阵
     cout << "init R0 " << endl << Rs[0] << endl;
     //Vs[0] = Vector3d(5, 0, 0);
 }
@@ -313,15 +315,16 @@ void Estimator::processIMU(double t, double dt, const Vector3d &linear_accelerat
     }
     if (frame_count != 0)
     {
-        pre_integrations[frame_count]->push_back(dt, linear_acceleration, angular_velocity);
+        pre_integrations[frame_count]->push_back(dt, linear_acceleration, angular_velocity);//将imu数据加入到pre_integrations[frame_count]中并进行据积分计算
         //if(solver_flag != NON_LINEAR)
-            tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);
+            tmp_pre_integration->push_back(dt, linear_acceleration, angular_velocity);//将imu数据加入到tmp_pre_integration中并进行据积分计算
+            //tmp_pre_integration为一个临时预积分器
 
-        dt_buf[frame_count].push_back(dt);
+        dt_buf[frame_count].push_back(dt);//以frame_count为索引记录dt,加速度,角速度
         linear_acceleration_buf[frame_count].push_back(linear_acceleration);
         angular_velocity_buf[frame_count].push_back(angular_velocity);
 
-        int j = frame_count;         
+        int j = frame_count;         //更新姿态,速度,位置
         Vector3d un_acc_0 = Rs[j] * (acc_0 - Bas[j]) - g;
         Vector3d un_gyr = 0.5 * (gyr_0 + angular_velocity) - Bgs[j];
         Rs[j] *= Utility::deltaQ(un_gyr * dt).toRotationMatrix();
@@ -1494,15 +1497,15 @@ void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Ei
 {
     double dt = t - latest_time;
     latest_time = t;
-    Eigen::Vector3d un_acc_0 = latest_Q * (latest_acc_0 - latest_Ba) - g;
-    Eigen::Vector3d un_gyr = 0.5 * (latest_gyr_0 + angular_velocity) - latest_Bg;
-    latest_Q = latest_Q * Utility::deltaQ(un_gyr * dt);
-    Eigen::Vector3d un_acc_1 = latest_Q * (linear_acceleration - latest_Ba) - g;
-    Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
-    latest_P = latest_P + dt * latest_V + 0.5 * dt * dt * un_acc;
-    latest_V = latest_V + dt * un_acc;
-    latest_acc_0 = linear_acceleration;
-    latest_gyr_0 = angular_velocity;
+    Eigen::Vector3d un_acc_0 = latest_Q * (latest_acc_0 - latest_Ba) - g;//世界坐标系下的加速度,上一时刻
+    Eigen::Vector3d un_gyr = 0.5 * (latest_gyr_0 + angular_velocity) - latest_Bg;//角速度
+    latest_Q = latest_Q * Utility::deltaQ(un_gyr * dt);//姿态更新
+    Eigen::Vector3d un_acc_1 = latest_Q * (linear_acceleration - latest_Ba) - g;//世界坐标系下的加速度,当前时刻
+    Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);//世界坐标系下的加速度
+    latest_P = latest_P + dt * latest_V + 0.5 * dt * dt * un_acc;//位置更新
+    latest_V = latest_V + dt * un_acc;//速度更新
+    latest_acc_0 = linear_acceleration;//更新加速度值
+    latest_gyr_0 = angular_velocity;//更新角速度值
 }
 
 void Estimator::updateLatestStates()

@@ -69,13 +69,13 @@ class IntegrationBase
                             Eigen::Vector3d &result_linearized_ba, Eigen::Vector3d &result_linearized_bg, bool update_jacobian)
     {
         //ROS_INFO("midpoint integration");
-        Vector3d un_acc_0 = delta_q * (_acc_0 - linearized_ba);
-        Vector3d un_gyr = 0.5 * (_gyr_0 + _gyr_1) - linearized_bg;
-        result_delta_q = delta_q * Quaterniond(1, un_gyr(0) * _dt / 2, un_gyr(1) * _dt / 2, un_gyr(2) * _dt / 2);
-        Vector3d un_acc_1 = result_delta_q * (_acc_1 - linearized_ba);
-        Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
-        result_delta_p = delta_p + delta_v * _dt + 0.5 * un_acc * _dt * _dt;
-        result_delta_v = delta_v + un_acc * _dt;
+        Vector3d un_acc_0 = delta_q * (_acc_0 - linearized_ba);//t0时刻加速度在参考系下的投影
+        Vector3d un_gyr = 0.5 * (_gyr_0 + _gyr_1) - linearized_bg;//t0到t1时刻均值
+        result_delta_q = delta_q * Quaterniond(1, un_gyr(0) * _dt / 2, un_gyr(1) * _dt / 2, un_gyr(2) * _dt / 2);//旋转更新
+        Vector3d un_acc_1 = result_delta_q * (_acc_1 - linearized_ba);//t1时刻加速度在参考系下的投影
+        Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);//计算参考系下加速度均值
+        result_delta_p = delta_p + delta_v * _dt + 0.5 * un_acc * _dt * _dt;//计算delta_p
+        result_delta_v = delta_v + un_acc * _dt;//计算delta_v
         result_linearized_ba = linearized_ba;
         result_linearized_bg = linearized_bg;         
 
@@ -85,6 +85,7 @@ class IntegrationBase
             Vector3d a_0_x = _acc_0 - linearized_ba;
             Vector3d a_1_x = _acc_1 - linearized_ba;
             Matrix3d R_w_x, R_a_0_x, R_a_1_x;
+            //计算平均角速度,t0时刻加速度,t1时刻加速度的反对称矩阵
 
             R_w_x<<0, -w_x(2), w_x(1),
                 w_x(2), 0, -w_x(0),
@@ -96,7 +97,7 @@ class IntegrationBase
                 a_1_x(2), 0, -a_1_x(0),
                 -a_1_x(1), a_1_x(0), 0;
 
-            MatrixXd F = MatrixXd::Zero(15, 15);
+            MatrixXd F = MatrixXd::Zero(15, 15);//状态转移矩阵
             F.block<3, 3>(0, 0) = Matrix3d::Identity();
             F.block<3, 3>(0, 3) = -0.25 * delta_q.toRotationMatrix() * R_a_0_x * _dt * _dt + 
                                   -0.25 * result_delta_q.toRotationMatrix() * R_a_1_x * (Matrix3d::Identity() - R_w_x * _dt) * _dt * _dt;
@@ -114,7 +115,7 @@ class IntegrationBase
             F.block<3, 3>(12, 12) = Matrix3d::Identity();
             //cout<<"A"<<endl<<A<<endl;
 
-            MatrixXd V = MatrixXd::Zero(15,18);
+            MatrixXd V = MatrixXd::Zero(15,18);//噪声强度矩阵
             V.block<3, 3>(0, 0) =  0.25 * delta_q.toRotationMatrix() * _dt * _dt;
             V.block<3, 3>(0, 3) =  0.25 * -result_delta_q.toRotationMatrix() * R_a_1_x  * _dt * _dt * 0.5 * _dt;
             V.block<3, 3>(0, 6) =  0.25 * result_delta_q.toRotationMatrix() * _dt * _dt;
@@ -130,8 +131,8 @@ class IntegrationBase
 
             //step_jacobian = F;
             //step_V = V;
-            jacobian = F * jacobian;
-            covariance = F * covariance * F.transpose() + V * noise * V.transpose();
+            jacobian = F * jacobian;//更新雅克比矩阵
+            covariance = F * covariance * F.transpose() + V * noise * V.transpose();//更新协方差
         }
 
     }

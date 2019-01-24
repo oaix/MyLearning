@@ -139,7 +139,7 @@ NodeId PoseGraph3D::AddNode(
     const int trajectory_id,
     const std::vector<std::shared_ptr<const Submap3D>>& insertion_submaps) {
   const transform::Rigid3d optimized_pose(
-      GetLocalToGlobalTransform(trajectory_id) * constant_data->local_pose);
+      GetLocalToGlobalTransform(trajectory_id) * constant_data->local_pose);//loacalpos进行变换得到globalpose的估计值
 
   const NodeId node_id = AppendNode(constant_data, trajectory_id,
                                     insertion_submaps, optimized_pose);

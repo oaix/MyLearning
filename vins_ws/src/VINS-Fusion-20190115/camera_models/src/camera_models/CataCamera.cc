@@ -546,7 +546,7 @@ CataCamera::liftSphere(const Eigen::Vector2d& p, Eigen::Vector3d& P) const
     }
 }
 
-/** 
+/**
  * \brief Lifts a point from the image plane to its projective ray
  *
  * \param p image coordinates
@@ -559,7 +559,7 @@ CataCamera::liftProjective(const Eigen::Vector2d& p, Eigen::Vector3d& P) const
     double rho2_d, rho4_d, radDist_d, Dx_d, Dy_d, inv_denom_d;
     //double lambda;
 
-    // Lift points to normalised plane
+    // Lift points to normalised plane投影到归一化平面
     mx_d = m_inv_K11 * p(0) + m_inv_K13;
     my_d = m_inv_K22 * p(1) + m_inv_K23;
 
@@ -595,6 +595,7 @@ CataCamera::liftProjective(const Eigen::Vector2d& p, Eigen::Vector3d& P) const
         else
         {
             // Recursive distortion model
+            //用递归方法消除畸变误差
             int n = 8;
             Eigen::Vector2d d_u;
             distortion(Eigen::Vector2d(mx_d, my_d), d_u);
