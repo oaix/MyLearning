@@ -97,20 +97,21 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
 
     for (auto &it_per_id : feature)
     {
-        if (it_per_id.start_frame <= frame_count - 2 &&
+        if (it_per_id.start_frame <= frame_count - 2 &&     //两帧之前的特征点,且特征点一直被跟踪
             it_per_id.start_frame + int(it_per_id.feature_per_frame.size()) - 1 >= frame_count - 1)
         {
-            parallax_sum += compensatedParallax2(it_per_id, frame_count);
+            parallax_sum += compensatedParallax2(it_per_id, frame_count);//计算倒数第二和第三帧的视差
             parallax_num++;
         }
     }
 
-    if (parallax_num == 0)
+    if (parallax_num == 0)//什么时候会==0?
     {
         return true;
     }
     else
     {
+        //计算平均视差,大于MIN_PARALLAX为关键帧
         ROS_DEBUG("parallax_sum: %lf, parallax_num: %d", parallax_sum, parallax_num);
         ROS_DEBUG("current parallax: %lf", parallax_sum / parallax_num * FOCAL_LENGTH);
         last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
@@ -218,7 +219,7 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
     Eigen::Matrix3d R_initial;
     Eigen::Vector3d P_initial;
 
-    // w_T_cam ---> cam_T_w 
+    // w_T_cam ---> cam_T_w 求相机到世界坐标系的转换
     R_initial = R.inverse();
     P_initial = -(R_initial * P);
 
@@ -229,9 +230,9 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
         return false;
     }
     cv::Mat r, rvec, t, D, tmp_r;
-    cv::eigen2cv(R_initial, tmp_r);
-    cv::Rodrigues(tmp_r, rvec);
-    cv::eigen2cv(P_initial, t);
+    cv::eigen2cv(R_initial, tmp_r);//将eigin变量转换为opencv变量
+    cv::Rodrigues(tmp_r, rvec);//旋转矩阵转换为旋转向量
+    cv::eigen2cv(P_initial, t);//将eigin变量转换为opencv变量
     cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);  
     bool pnp_succ;
     pnp_succ = cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
@@ -268,13 +269,13 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
             if (it_per_id.estimated_depth > 0)
             {
                 int index = frameCnt - it_per_id.start_frame;
-                if((int)it_per_id.feature_per_frame.size() >= index + 1)
+                if((int)it_per_id.feature_per_frame.size() >= index + 1)//特征点每次都被跟踪到
                 {
-                    Vector3d ptsInCam = ric[0] * (it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth) + tic[0];
-                    Vector3d ptsInWorld = Rs[it_per_id.start_frame] * ptsInCam + Ps[it_per_id.start_frame];
+                    Vector3d ptsInCam = ric[0] * (it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth) + tic[0];//计算特征点的相机坐标
+                    Vector3d ptsInWorld = Rs[it_per_id.start_frame] * ptsInCam + Ps[it_per_id.start_frame];//计算特征点的世界坐标
 
-                    cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
-                    cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(), it_per_id.feature_per_frame[index].point.y());
+                    cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());//最早帧中的3d坐标
+                    cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(), it_per_id.feature_per_frame[index].point.y());//最后帧中的2d坐标
                     pts3D.push_back(point3d);
                     pts2D.push_back(point2d); 
                 }
@@ -282,7 +283,7 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
         }
         Eigen::Matrix3d RCam;
         Eigen::Vector3d PCam;
-        // trans to w_T_cam
+        // trans to w_T_cam  计算世界坐标系到相机的变换矩阵
         RCam = Rs[frameCnt - 1] * ric[0];
         PCam = Rs[frameCnt - 1] * tic[0] + Ps[frameCnt - 1];
 
@@ -531,26 +532,27 @@ double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int f
 {
     //check the second last frame is keyframe or not
     //parallax betwwen seconde last frame and third last frame
+    //取倒数第二和第三帧的特征描述
     const FeaturePerFrame &frame_i = it_per_id.feature_per_frame[frame_count - 2 - it_per_id.start_frame];
     const FeaturePerFrame &frame_j = it_per_id.feature_per_frame[frame_count - 1 - it_per_id.start_frame];
 
     double ans = 0;
-    Vector3d p_j = frame_j.point;
+    Vector3d p_j = frame_j.point;//取倒数第二帧坐标
 
     double u_j = p_j(0);
     double v_j = p_j(1);
 
-    Vector3d p_i = frame_i.point;
+    Vector3d p_i = frame_i.point;//取倒数第三帧坐标
     Vector3d p_i_comp;
 
     //int r_i = frame_count - 2;
     //int r_j = frame_count - 1;
     //p_i_comp = ric[camera_id_j].transpose() * Rs[r_j].transpose() * Rs[r_i] * ric[camera_id_i] * p_i;
     p_i_comp = p_i;
-    double dep_i = p_i(2);
-    double u_i = p_i(0) / dep_i;
+    double dep_i = p_i(2);//z坐标,深度
+    double u_i = p_i(0) / dep_i;//计算归一化坐标
     double v_i = p_i(1) / dep_i;
-    double du = u_i - u_j, dv = v_i - v_j;
+    double du = u_i - u_j, dv = v_i - v_j;//坐标变化值
 
     double dep_i_comp = p_i_comp(2);
     double u_i_comp = p_i_comp(0) / dep_i_comp;

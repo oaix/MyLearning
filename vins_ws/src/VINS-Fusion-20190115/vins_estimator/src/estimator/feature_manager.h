@@ -52,18 +52,20 @@ class FeaturePerFrame
         is_stereo = true;
     }
     double cur_td;
-    Vector3d point, pointRight;
-    Vector2d uv, uvRight;
-    Vector2d velocity, velocityRight;
-    bool is_stereo;
+    Vector3d point, pointRight;//左右目的坐标
+    Vector2d uv, uvRight;//左右目的像素坐标
+    Vector2d velocity, velocityRight;//左右木中点的速度
+    bool is_stereo;//是否双目
 };
-
+/*
+ * 与ID对应的特征点
+ */
 class FeaturePerId
 {
   public:
-    const int feature_id;
-    int start_frame;
-    vector<FeaturePerFrame> feature_per_frame;
+    const int feature_id;//特征点id
+    int start_frame;//开始被跟踪的帧号
+    vector<FeaturePerFrame> feature_per_frame;//在每一帧中的特征描述
     int used_num;
     double estimated_depth;
     int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;

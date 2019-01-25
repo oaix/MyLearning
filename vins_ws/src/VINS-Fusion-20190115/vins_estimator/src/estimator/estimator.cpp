@@ -355,12 +355,12 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     ROS_DEBUG("%s", marginalization_flag ? "Non-keyframe" : "Keyframe");
     ROS_DEBUG("Solving %d", frame_count);
     ROS_DEBUG("number of feature: %d", f_manager.getFeatureCount());
-    Headers[frame_count] = header;
+    Headers[frame_count] = header;//header输入的是t
 
     ImageFrame imageframe(image, header);
-    imageframe.pre_integration = tmp_pre_integration;
-    all_image_frame.insert(make_pair(header, imageframe));
-    tmp_pre_integration = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};
+    imageframe.pre_integration = tmp_pre_integration;//积分值指针传递
+    all_image_frame.insert(make_pair(header, imageframe));//将t, imageframe存入map容器
+    tmp_pre_integration = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};//新建一个预积分对象
 
     if(ESTIMATE_EXTRINSIC == 2)
     {
