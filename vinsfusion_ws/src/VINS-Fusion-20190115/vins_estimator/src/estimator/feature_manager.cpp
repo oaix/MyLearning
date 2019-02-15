@@ -246,9 +246,9 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
     cv::Rodrigues(rvec, r);
     //cout << "r " << endl << r << endl;
     Eigen::MatrixXd R_pnp;
-    cv::cv2eigen(r, R_pnp);
+    cv::cv2eigen(r, R_pnp);//转换为eigen库旋转矩阵
     Eigen::MatrixXd T_pnp;
-    cv::cv2eigen(t, T_pnp);
+    cv::cv2eigen(t, T_pnp);//转换为eigen库
 
     // cam_T_w ---> w_T_cam
     R = R_pnp.transpose();
@@ -310,14 +310,14 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         if(STEREO && it_per_id.feature_per_frame[0].is_stereo)
         {
             int imu_i = it_per_id.start_frame;
-            Eigen::Matrix<double, 3, 4> leftPose;
+            Eigen::Matrix<double, 3, 4> leftPose;//计算左目的位姿
             Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
             Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
             leftPose.leftCols<3>() = R0.transpose();
             leftPose.rightCols<1>() = -R0.transpose() * t0;
             //cout << "left pose " << leftPose << endl;
 
-            Eigen::Matrix<double, 3, 4> rightPose;
+            Eigen::Matrix<double, 3, 4> rightPose;//计算右目的位姿
             Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[1];
             Eigen::Matrix3d R1 = Rs[imu_i] * ric[1];
             rightPose.leftCols<3>() = R1.transpose();
@@ -331,7 +331,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             //cout << "point0 " << point0.transpose() << endl;
             //cout << "point1 " << point1.transpose() << endl;
 
-            triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+            triangulatePoint(leftPose, rightPose, point0, point1, point3d);//三角测量计算深度
             Eigen::Vector3d localPoint;
             localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
             double depth = localPoint.z();
